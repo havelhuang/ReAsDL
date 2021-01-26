@@ -17,7 +17,7 @@ The proposed RAM is inspired by partition-based testing and operational testing 
 We conduct case studies to demonstrate our RAM with 3 DNNs trained on the common MNIST, CIFAR-10 and also a real-word traﬃc sign recognition benchmarks (GTSRB). Prior to operational testing, we evaluate the label separation distance and decide the cell size based on this. The primary reliability assessment results can be found in the the original paper. For each DNN, we synthesise three operational test sets, OP1, OP2, and OP3 to simulate the operational testing.
 
 <p align="center">
-  <img src="images/op_test.jpg" width="800" alt="op test results">
+  <img src="images/op_test.png" width="800" alt="op test results">
   <br />
   Case studies on three DNNs with three types of operational test sets.
   <br />
