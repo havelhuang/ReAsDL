@@ -1,5 +1,5 @@
 # ReAsDL
-The Reliability Assessment Model (RAM) for Deep Learning (DL) systems  
+The Reliability Assessment Model (RAM) for Deep Learning (DL) Systems  
 ## Overview of ReAsDL
 
 <p align="center">
