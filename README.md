@@ -23,7 +23,7 @@ We conduct case studies to demonstrate our RAM with 3 DNNs trained on the common
   <br />
 </p>
 
-OP1 represent the early stage of testing that the test cases are mostly sampled from test datasets and the model's reliability is continouly amended. OP2 consists of data randomly sampled from both the training and test datasets with perturbation, thus it represents an ideal case where the existing dataset statistically depicts the future operational use. While, OP3 represents the case where the future OP and the existing dataset used for training are mismatched, which is common and not necessarily bad.
+OP1 represents the early (or ``burn-in'') stage of the operational testing. Inputs mostly fall into empty cells due to the sparsity of the existing data, thus the estimates on the OP are far from stable. OP2 consists of data randomly sampled from both the training and test datasets with perturbation, thus it represents an ideal case where the existing dataset statistically depicts the future operational use. While, OP3 represents the case where the future OP and the existing dataset used for training are mismatched, which is common and not necessarily bad.
 
 ## Repository Structure
 
@@ -52,4 +52,4 @@ python main('cifar10', 'before', cell_size = 20, count_mh_steps = 100, count_par
 
 ## Acknowledgement 
 
-We acknowledge the paper "A Statistical Approach to Assessing Neural Network Robustness" (https://github.com/oval-group/statistical-robustness) to provide a elegant way for assessing the local robustness in each cell.
+We acknowledge the paper "A Statistical Approach to Assessing Neural Network Robustness" (https://github.com/oval-group/statistical-robustness) to provide a elegant way for assessing the local robustness in each cell, and "A Closer Look at Accuracy vs. Robustness" (https://github.com/yangarbiter/robust-local-lipschitz) to provide us with a rule of thumb on determining the cell size.
