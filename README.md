@@ -52,4 +52,4 @@ python main('cifar10', 'before', cell_size = 20, count_mh_steps = 100, count_par
 
 ## Acknowledgement 
 
-We acknowledge the paper "A Statistical Approach to Assessing Neural Network Robustness" (https://github.com/oval-group/statistical-robustness) to provide a elegant way for assessing the local robustness in each cell, and "A Closer Look at Accuracy vs. Robustness" (https://github.com/yangarbiter/robust-local-lipschitz) to provide us with a rule of thumb on determining the cell size.
+We acknowledge the paper "A Statistical Approach to Assessing Neural Network Robustness" (https://github.com/oval-group/statistical-robustness) to provide an elegant way for assessing the local robustness in each cell, and "A Closer Look at Accuracy vs. Robustness" (https://github.com/yangarbiter/robust-local-lipschitz) to provide us with a rule of thumb on determining the cell size.
