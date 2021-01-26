@@ -23,7 +23,7 @@ We conduct case studies to demonstrate our RAM with 3 DNNs trained on the common
   <br />
 </p>
 
-OP1 represents the early (or ``burn-in'') stage of the operational testing. Inputs mostly fall into empty cells due to the sparsity of the existing data, thus the estimates on the OP are far from stable. OP2 consists of data randomly sampled from both the training and test datasets with perturbation, thus it represents an ideal case where the existing dataset statistically depicts the future operational use. While, OP3 represents the case where the future OP and the existing dataset used for training are mismatched, which is common and not necessarily bad.
+OP1 represents the early (or ``burn-in'') stage of the operational testing. Inputs mostly fall into empty cells due to the sparsity of the existing data, thus the estimates on the OP are far from stable. OP2 consists of data randomly sampled from both the training and test datasets with perturbation, thus it represents an ideal case where the existing dataset statistically depicts the future operational use. While, OP3 represents the case where the future OP and the existing dataset used for training are mismatched, which is common and not necessarily bad (cf. the orginial paper for more discussions).
 
 ## Repository Structure
 
