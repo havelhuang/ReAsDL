@@ -40,7 +40,7 @@ ReAsDL provides the training and operational testing of MNIST, CIFAR-10 and GTSR
 The running environment is tested in python 3.8, some necessary pacakages include:
 
 ```
-scikit-learn, pytorch, numpy, matplotlib, joblib, and Gurobi
+scikit-learn, pytorch, numpy, matplotlib, seaborn, joblib, and Gurobi
 ```
 
 ### Command to Run
