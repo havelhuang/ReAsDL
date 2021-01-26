@@ -48,7 +48,6 @@ scikit-learn, pytorch, numpy, matplotlib, joblib, and Gurobi
 To run the prior assessment of cifar-10 model, type the commad:
 ```
 python main('cifar10', 'before', cell_size = 20, count_mh_steps = 100, count_particles = 500)
-
 ```
 
 ## Acknowledgement 
