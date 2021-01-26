@@ -5,7 +5,7 @@ The Reliability Assessment Model (RAM) for Deep Learning (DL) Systems
 <p align="center">
   <img src="images/fig_workflow.png" width="600" alt="RAM work flow">
   <br />
-  The Workflow of RAM for DL systems (cf. the original paper for detailed descriptions).
+  The Workflow of RAM for DL Systems (cf. the original paper for detailed descriptions).
   <br />
 </p>
 
