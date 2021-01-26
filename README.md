@@ -34,7 +34,6 @@ ReAsDL provides the training and operational testing of MNIST, CIFAR-10 and GTSR
 * **plnn** associates to the statistical evaluation of DL model's robustness through multi-level splitting methods;
 * **mnist.py, cifar10.py and gtsrb.py** are the class objects to load the operational test sets.
 
-We acknowledge the paper "A Statistical Approach to Assessing Neural Network Robustness" (https://github.com/oval-group/statistical-robustness) to provide a elegant way for assessing the local robustness in each cell.
 
 ### Pacakage Dependencies 
 
@@ -49,4 +48,9 @@ scikit-learn, pytorch, numpy, matplotlib, joblib, and Gurobi
 To run the prior assessment of cifar-10 model, type the commad:
 ```
 python main('cifar10', 'before', cell_size = 20, count_mh_steps = 100, count_particles = 500)
+
 ```
+
+## Acknowledgement 
+
+We acknowledge the paper "A Statistical Approach to Assessing Neural Network Robustness" (https://github.com/oval-group/statistical-robustness) to provide a elegant way for assessing the local robustness in each cell.
