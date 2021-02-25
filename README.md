@@ -1,7 +1,7 @@
 # ReAsDL
 The Reliability Assessment Model (RAM) for Deep Learning (DL) Systems
 
-(Published version to appear, cf. authors' [preprint](https://x-y-zhao.github.io/files/TechRept_DSN2021_FA.pdf) for now.)
+(Published version to appear, cf. authors' [preprint](https://x-y-zhao.github.io/files/TechRept_ReAsDL.pdf) for now.)
 
 ## Overview of ReAsDL
 
