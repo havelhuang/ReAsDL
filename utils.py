@@ -7,6 +7,9 @@ import time
 import os, uuid, logging, math
 import torch
 import numpy as np
+import matplotlib as plt
+from sklearn.neighbors import NearestNeighbors
+from joblib import Parallel, delayed
 
 # Orders vertices so they go clockwise or anti-clockwise around polygon
 def order_vertices(vertices):
@@ -159,3 +162,43 @@ def writeInfo(r, idx, pfd, avg_accuracy, mle_fail):
     r.write("MLE failure estimation: %.5f\n" % (mle_fail))
     r.write('--------------------------\n')
     r.write('--------------------------\n')
+
+def get_nearest_oppo_dist(X, y, norm, n_jobs=10):
+    if len(X.shape) > 2:
+        X = X.reshape(len(X), -1)
+    p = norm
+
+    def helper(yi):
+        return NearestNeighbors(n_neighbors=1,
+                                metric='minkowski', p=p, n_jobs=12).fit(X[y != yi])
+
+    nns = Parallel(n_jobs=n_jobs)(delayed(helper)(yi) for yi in np.unique(y))
+    ret = np.zeros(len(X))
+    for yi in np.unique(y):
+        dist, _ = nns[yi].kneighbors(X[y == yi], n_neighbors=1)
+        ret[np.where(y == yi)[0]] = dist[:, 0]
+
+    return nns, ret
+
+def plot_label_clusters(latent_data, labels):
+    # display a 2D plot of the digit classes in the latent space
+    plt.figure(figsize=(12, 10))
+    plt.scatter(latent_data[:, 0], latent_data[:, 1], c=labels)
+    plt.colorbar()
+    plt.xlabel("z[0]")
+    plt.ylabel("z[1]")
+    plt.show()
+
+def load_checkpoint(model, model_dir):
+    path = os.path.join(model_dir, model.name)
+
+    # load the checkpoint.
+    checkpoint = torch.load(path)
+    print('=> loaded checkpoint of {name} from {path}'.format(
+        name=model.name, path=(path)
+    ))
+
+    # load parameters and return the checkpoint's epoch and precision.
+    model.load_state_dict(checkpoint['state'])
+    epoch = checkpoint['epoch']
+    return epoch

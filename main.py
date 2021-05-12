@@ -3,14 +3,17 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-CUDA = False
+CUDA = True
 
-
+from copy import deepcopy
 import sys
 from mnist import mnist
 from cifar10 import cifar10
-from gtsrb import gtsrb
+from op_learning import op_learning
+import multiprocessing
+from sklearn.neighbors import KernelDensity
 
+import math
 import os
 import time
 import pickle
@@ -20,30 +23,29 @@ if CUDA:
   os.environ['CUDA_DEVICE_ORDER'] = 'PCI_BUS_ID'
   os.environ['CUDA_VISIBLE_DEVICES'] = '{}'.format(cuda_id)
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torch.distributions as dist
-from torch.utils.data import DataLoader, Dataset
-from torchvision import datasets, transforms
 from multi_level import multilevel_uniform, greyscale_multilevel_uniform
-
+import torch.distributions as dist
+import torchvision
+from sklearn.model_selection import GridSearchCV
+from sklearn.decomposition import PCA
 import matplotlib
 matplotlib.use('pdf')
 import matplotlib.pyplot as plt
-from matplotlib import cm
-import seaborn as sns
 
 plt.style.use(['seaborn-white', 'seaborn-paper', 'seaborn-ticks'])
 matplotlib.rc('font', family='Latin Modern Roman')
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
-from plnn.model import load_and_simplify2
+# from plnn.model import load_and_simplify2
 import utils
 
 def cm2inch(value):
   return value/2.54
+
+def parrallel_score_samples(kde, samples, thread_count=int(0.875 * multiprocessing.cpu_count())):
+  with multiprocessing.Pool(thread_count) as p:
+    return np.concatenate(p.map(kde.score_samples, np.array_split(samples, thread_count)))
 
 
 def main(test_model, op, cell_size = 3, count_mh_steps = 100, count_particles = 1000):
@@ -62,66 +64,70 @@ def main(test_model, op, cell_size = 3, count_mh_steps = 100, count_particles = 
   elif test_model == 'cifar10':
     loader = cifar10(CUDA,op)
     robust_test = multilevel_uniform
-  elif test_model == 'gtsrb':
-    loader = gtsrb(CUDA,op)
-    robust_test = multilevel_uniform
   else:
-    print('please choose a model from mnist, cifar10, and gtsrb!')
+    print('please choose a model from mnist, cifar10!')
     sys.exit(1)
 
-
-  if op == 'op':
-    fname = 'output'
-    file = open("data/cell_symb.pkl", 'rb')
-    cell_symb = pickle.load(file)
-    file.close()
-    bef_sample = np.load('data/train_sample_number.npy')
-    bef_sample_count = bef_sample[1]
-    bef_sample_fail = bef_sample[0]
-    x_op = loader.x_test
-    y_op = loader.y_test
-    print('During the operational testing.\n')
-
-  elif op == 'before':
-    fname = 'data'
-    cell_symb = {}
-    bef_sample_count = 0
-    bef_sample_fail = 0
-    x_op = loader.x_train
-    y_op = loader.y_train
+  if op == 'before':
+    x_op = loader.x
+    y_op = loader.y
+    x_latent = loader.x_latent
     print('Prior to the operational testing, running with the existing data.')
-
-  r = utils.record('output/record.txt', time.time())
-
-  # find sybolic representation of unique cells via current data
-  bins = np.linspace(loader.x_min, loader.x_max, num=cell_size + 1)
-  bins2 = bins[1:len(bins) - 1]
-
-  if CUDA:
-    symbs = np.digitize(np.array(x_op.cpu()), bins2)
   else:
-    symbs = np.digitize(np.array(x_op), bins2)
+    raise Exception("Please define an Operational Dataset")
 
-  ######################################################
-  unique_symbs, unique_indices, unique_counts = np.unique(symbs, axis=0, return_counts=True, return_index=True)
-  # unique_class = y[unique_indices]
-  # aa = model(x[1])
-  # aaa = unique_symbs[1]
-  # aaaa = np.resize(aaa,(28,28))
-  # print(len(unique_counts))
-  ######################################################
 
+  # r-separation to decide cell size
+  # nns, ret = utils.get_nearest_oppo_dist(np.array(x_latent.cpu()), np.array(y_op.cpu()), np.inf, n_jobs=10)
+  # ret = np.sort(ret)
+  # print(ret.min(), ret.mean())
+
+  # latent space check the latent variables' value range
+  # max_x = torch.amax(x_latent, 0)
+  # min_x = torch.amin(x_latent, 0)
+
+  input_learn = op_learning(y_op, 5.5, -4.5, cell_size)
+  input_learn.init_op(x_latent)
+  new_x = input_learn.kde.sample(1000, random_state=0)
+
+  device = torch.device("cuda:0" if CUDA else "cpu")
+  
+  new_x = torch.tensor(new_x, device=device).float()
+  input_learn.updata_op(new_x, None)
+
+
+  cell_points = input_learn.unique_symbs * input_learn.cell_interval + input_learn.x_min
+  op_points = parrallel_score_samples(input_learn.kde, np.array(cell_points.cpu()))
+  op_points = np.exp(op_points)
+  
+  sort_id = np.argsort(-op_points)
+  op_points = -np.sort(-op_points)
+  cell_points = cell_points[sort_id]
+  input_learn.unique_symbs = input_learn.unique_symbs[sort_id]
+  input_learn.find_ground_truth()
+  np.save('op_cell.npy', op_points)
+
+
+  # op_points = np.sort(op_points)[-100000:]
+  cell_volume = math.pow(10/cell_size, 8)
+  op_model =  sum(op_points*cell_volume)
+
+
+  input_points = input_learn.cal_pred_label(loader,cell_points)
+
+  # torchvision.utils.save_image(input_points[100:120], 'output/real_samples.png')
 
   # set parameters for multi-level splitting
   v = 2
   rho = 0.1
   debug= True
   stats=True
+  sigma = 0.3
 
   print('rho', rho, 'count_particles', count_particles, 'count_mh_steps', count_mh_steps)
 
   # create empty list to save the sampling results
-  lg_ps = []
+  cell_lambda = []
   max_vals = []
   levels = []
 
@@ -130,92 +136,56 @@ def main(test_model, op, cell_size = 3, count_mh_steps = 100, count_particles = 
   sample_fail = 0
 
   # verify the probability of failure for each cell
-  for idx in range(len(symbs)):
+  for idx in range(len(input_points)):
     print('--------------------------------')
-
     sample_count += 1
-    symb = symbs[idx]
-    symb_rep = symb.flatten()
-    symb_rep = hash(tuple(symb_rep))
-    symb_rep = repr(symb_rep)
+    x_class = input_learn.unique_y[idx]
+    x_sample = input_points[idx]
+    print(f'cell {idx}, label {x_class}')
 
-    x_class = y_op[idx]
-    if x_class != loader.y_pred[idx]:
-        sample_fail += 1
+    if x_class == 'cross':
+      cell_lambda.append(1)
+      print('cross-boundary cell, conservatively set pfd = 1')
+      continue
 
+    elif x_class == 'empty':
+      x_class = input_learn.unique_y_pred[idx]
 
-    if symb_rep in cell_symb.keys():
-      value = cell_symb[symb_rep]
-      if y_op[idx] != value[0]:
-        value[1] = 0
-        print('cross-boundary cell, conservatively set pfd = 1')
-      else:
-        print('existing cell, no need to update')
-      value[-1] += 1
-    else:
-      # calculate the range of cell
+    if x_class != input_learn.unique_y_pred[idx]:
+      cell_lambda.append(1)
+      continue
 
 
-      x_low = np.float32(bins[symb])
-      x_high = np.float32(bins[symb + 1])
+    def prop(x_input):
+      x_input = loader.data_normalization(x_input)
+      y_pred = loader.model(x_input)
+      y_diff = torch.cat((y_pred[:, :x_class], y_pred[:, (x_class + 1):]), dim=1) - y_pred[:, x_class].unsqueeze(-1)
+      y_diff, _ = y_diff.max(dim=1)
+      return y_diff  # .max(dim=1)
 
-      print(f'cell {idx}, label {x_class}')
-
-
-      def prop(x_input):
-        x_input = loader.data_normalization(x_input)
-        y_pred = loader.model(x_input)
-        y_diff = torch.cat((y_pred[:, :x_class], y_pred[:, (x_class + 1):]), dim=1) - y_pred[:, x_class].unsqueeze(-1)
-        y_diff, _ = y_diff.max(dim=1)
-        return y_diff  # .max(dim=1)
-
-
-      start = time.time()
-      with torch.no_grad():
-        lg_p, max_val, _, l = robust_test(prop, x_low, x_high, cell_size, CUDA=CUDA, rho=rho, count_particles=count_particles,
-                                               count_mh_steps=count_mh_steps, debug=debug, stats=stats)
-      end = time.time()
-      print(f'Took {(end - start) / 60} minutes...')
-
-      cell_symb[symb_rep] = [x_class, lg_p, 1]
-
-      lg_ps.append(lg_p)
-      max_vals.append(max_val)
-      levels.append(l)
-
-      if debug:
-        print('lg_p', lg_p, 'max_val', max_val)
-
-    # output the updated probability of failure of model
-    pfd = utils.model_pfd(cell_symb, sample_count + bef_sample_count, v)
-
-    # output the average failure of model
-    avg_fail = utils.model_avg_fail(cell_symb)
-
-    # output the MLE failure of model
-    mle_fail = (sample_fail + bef_sample_fail)/(sample_count + bef_sample_count)
-    print('MLE failure estimation:', mle_fail)
-
-    # write to the file
-    utils.writeInfo(r, idx, pfd, avg_fail, mle_fail)
-
-    if sample_count % 2000 == 0:
-      f = open("output/cell_symb.pkl", "wb")
-      pickle.dump(cell_symb, f)
-      f.close()
-      np.save('output/train_sample_number.npy', np.array([sample_fail, sample_count]))
+    start = time.time()
+    with torch.no_grad():
+      lg_p, max_val, _, l = robust_test(prop, x_sample, sigma, CUDA=CUDA, rho=rho, count_particles=count_particles,
+                                             count_mh_steps=count_mh_steps, debug=debug, stats=stats)
+    end = time.time()
+    print(f'Took {(end - start) / 60} minutes...')
 
 
-  r.close()
+    cell_lambda.append(10 ** (lg_p))
+    max_vals.append(max_val)
+    levels.append(l)
 
-  f = open(fname + "/cell_symb.pkl","wb")
-  pickle.dump(cell_symb,f)
-  f.close()
+    if idx % 2000 == 0:
+      np.save('pfd_cell.npy', np.array(cell_lambda))
 
-  np.save(fname + '/train_sample_number.npy', np.array([sample_fail, sample_count]))
+    if debug:
+      print('lg_p', lg_p, 'max_val', max_val)
+
+  np.save('pfd_cell.npy', np.array(cell_lambda))
+
 
 if __name__ == "__main__":
-    main('cifar10', 'before', cell_size = 20, count_mh_steps = 100, count_particles = 500)
+    main('mnist', 'before', cell_size = 100, count_mh_steps = 200, count_particles = 1000)
 
 
 

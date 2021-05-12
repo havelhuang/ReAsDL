@@ -17,12 +17,19 @@ matplotlib.rc('font', family='Latin Modern Roman')
 
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
+# # CIFAR10
+# x_min = torch.tensor([0, 0, 0]).cuda()
+# x_max = torch.tensor([1, 1, 1]).cuda()
+
+# MNIST
+x_min = 0
+x_max = 1
+
 
 def greyscale_multilevel_uniform(
         prop,
-        x_low,
-        x_high,
-        cell_size,
+        x_sample,
+        sigma=1.0,
         CUDA=False,
         rho=0.1,
         count_particles=1000,
@@ -32,15 +39,15 @@ def greyscale_multilevel_uniform(
     # We transform the input from [x_min, x_max] to [epsilon, 1 - epsilon], then to [logit(epsilon), logit(1 - epsilon)]
     # Then we can do the sampling on (-inf, inf)
     if CUDA:
-        prior = dist.Uniform(low=torch.tensor(x_low).cuda(), high=torch.tensor(x_high).cuda())
+        prior = dist.Uniform(low=torch.max(x_sample-sigma, torch.tensor([x_min]).cuda()), high=torch.min(x_sample+sigma, torch.tensor([x_max]).cuda()))
     else:
-        prior = dist.Uniform(low=torch.tensor(x_low), high=torch.tensor(x_high))
+        prior = dist.Uniform(low=torch.max(x_sample-sigma, torch.tensor([x_min])), high=torch.min(x_sample+sigma, torch.tensor([x_max])))
 
     # Parameters
     if CUDA:
-        width_proposal = 1/cell_size*torch.ones(count_particles).cuda() / 30
+        width_proposal = sigma*torch.ones(count_particles).cuda()/30
     else:
-        width_proposal = 1/cell_size*torch.ones(count_particles) / 30
+        width_proposal = sigma*torch.ones(count_particles)/30
 
     count_max_levels = 500
     target_acc_ratio = 0.9
@@ -98,6 +105,10 @@ def greyscale_multilevel_uniform(
         lg_p += torch.log(count_keep.float()).item() - math.log(count_particles)
         # print('term', torch.log(count_keep.float()).item() - math.log(count_particles))
 
+        # Early termination
+        if lg_p < -20:
+            return -20., None, x, levels
+
         # Uniformly resample killed particles below the level
         new_idx = torch.randint(low=0, high=count_keep, size=(count_kill,), dtype=torch.long)
         x = x[where_keep]
@@ -127,8 +138,7 @@ def greyscale_multilevel_uniform(
             g_top = dist.Uniform(low=torch.max(x_maybe - width_proposal.unsqueeze(-1), prior.low),
                                  high=torch.min(x_maybe + width_proposal.unsqueeze(-1), prior.high))
             # g_top = dist.Normal(x_maybe, width_proposal.unsqueeze(-1))
-            lg_alpha = (prior.log_prob(x_maybe) + g_top.log_prob(x) - prior.log_prob(x) - g_bottom.log_prob(
-                x_maybe)).sum(dim=1)
+            lg_alpha = (prior.log_prob(x_maybe) + g_top.log_prob(x) - prior.log_prob(x) - g_bottom.log_prob(x_maybe)).sum(dim=1)
             acceptance = torch.min(lg_alpha, torch.zeros_like(lg_alpha))
 
             # Work out which ones to accept
@@ -162,9 +172,8 @@ def greyscale_multilevel_uniform(
 
 def multilevel_uniform(
         prop,
-        x_low,
-        x_high,
-        cell_size,
+        x_sample,
+        sigma=1.,
         CUDA=False,
         rho=0.1,
         count_particles=1000,
@@ -173,16 +182,13 @@ def multilevel_uniform(
     # Calculate the mean of the normal distribution in logit space
     # We transform the input from [x_min, x_max] to [epsilon, 1 - epsilon], then to [logit(epsilon), logit(1 - epsilon)]
     # Then we can do the sampling on (-inf, inf)
-    if CUDA:
-        prior = dist.Uniform(low=torch.tensor(x_low).cuda(), high=torch.tensor(x_high).cuda())
-    else:
-        prior = dist.Uniform(low=torch.tensor(x_low), high=torch.tensor(x_high))
+    prior = dist.Uniform(low=torch.max(x_sample-sigma*(x_max-x_min).view(3,1,1), x_min.view(3,1,1)), high=torch.min(x_sample+sigma*(x_max-x_min).view(3,1,1), x_max.view(3,1,1)))
 
     # Parameters
     if CUDA:
-        width_proposal = 1/cell_size*torch.ones(count_particles).cuda() / 30
+        width_proposal = sigma*torch.ones(count_particles).cuda()/30
     else:
-        width_proposal = 1/cell_size*torch.ones(count_particles) / 30
+        width_proposal = sigma*torch.ones(count_particles)/30
 
     count_max_levels = 500
     target_acc_ratio = 0.9
